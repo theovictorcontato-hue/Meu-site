@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>Editor Luau Simples - Verde/Verde</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background-color: #0f0f1a;
+        color: #e0e0ff;
+        margin: 0;
+        padding: 20px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    h1 {
+        margin: 0 0 15px 0;
+        font-size: 1.6rem;
+        color: #00ffcc;
+    }
+
+    #editor {
+        flex: 1;
+        width: 100%;
+        max-width: 900px;
+        background-color: #0d0d17;
+        color: #e0e0ff;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 15px;
+        padding: 16px;
+        border: 2px solid #444;
+        border-radius: 8px;
+        resize: none;
+        outline: none;
+        line-height: 1.5;
+        transition: border-color 0.4s;
+    }
+
+    #editor.good {
+        border-color: #00ff88;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.25);
+    }
+
+    #editor.bad {
+        border-color: #ff4444;
+        box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+    }
+
+    .status {
+        margin-top: 10px;
+        font-size: 0.9rem;
+    }
+
+    .good { color: #00ff88; }
+    .bad   { color: #ff4444; }
+</style>
+</head>
+<body>
+
+<h1>Editor Luau - Verde = parece ok • Vermelho = tem coisa errada</h1>
+
+<textarea id="editor" spellcheck="false" placeholder="Escreva seu código Luau aqui..."></textarea>
+
+<div class="status" id="status">Digite algo para começar a checar...</div>
+
+<script>
+// Detectores bem simples e imperfeitos (é só uma brincadeira mesmo)
+function checkLuauBasic(code) {
+    const errors = [];
+
+    // Contagem de parênteses, chaves e colchetes
+    let paren = 0, curly = 0, square = 0;
+    for (const char of code) {
+        if (char === '(') paren++;
+        if (char === ')') paren--;
+        if (char === '{') curly++;
+        if (char === '}') curly--;
+        if (char === '[') square++;
+        if (char === ']') square--;
+    }
+
+    if (paren !== 0)   errors.push("Parênteses desbalanceados");
+    if (curly !== 0)   errors.push("Chaves desbalanceadas");
+    if (square !== 0)  errors.push("Colchetes desbalanceados");
+
+    // Palavras que geralmente precisam de then/end
+    const needsThen = /\b(if|elseif)\b/g;
+    const hasThen   = /\bthen\b/g;
+    const hasEnd    = /\bend\b/g;
+
+    const ifCount   = (code.match(needsThen) || []).length;
+    const thenCount = (code.match(hasThen) || []).length;
+    const endCount  = (code.match(hasEnd) || []).length;
+
+    if (ifCount > thenCount) {
+        errors.push("Faltou 'then' em algum if/elseif?");
+    }
+    if (endCount < ifCount) {
+        errors.push("Faltou algum 'end'?");
+    }
+
+    // Erros comuns de digitação em Luau/Roblox
+    if (/\bprintt\b/.test(code)) errors.push("printt? → print");
+    if (/\bprinf\b/.test(code))  errors.push("prinf? → print");
+    if (/\bloca\b/.test(code))   errors.push("loca? → local");
+    if (/\bfuntion\b/.test(code)) errors.push("funtion? → function");
+    if (/\bwhlie\b/.test(code))  errors.push("whlie? → while");
+    if (/\buntill\b/.test(code)) errors.push("untill? → until");
+
+    // Muito rudimentar: procura } no final sem end antes
+    if (code.trim().endsWith("}") && !/end\s*$/.test(code.trim())) {
+        errors.push("Terminou com } mas não vi end antes...");
+    }
+
+    return {
+        hasError: errors.length > 0,
+        messages: errors
+    };
+}
+
+const editor = document.getElementById("editor");
+const statusEl = document.getElementById("status");
+
+let timeout;
+
+editor.addEventListener("input", () => {
+    clearTimeout(timeout);
+    
+    timeout = setTimeout(() => {
+        const code = editor.value;
+        if (code.trim() === "") {
+            statusEl.textContent = "Digite algo para começar a checar...";
+            editor.classList.remove("good", "bad");
+            return;
+        }
+
+        const result = checkLuauBasic(code);
+
+        if (result.hasError) {
+            editor.classList.remove("good");
+            editor.classList.add("bad");
+            
+            if (result.messages.length <= 3) {
+                statusEl.innerHTML = `<span class="bad">Possíveis problemas:</span><br>• ${result.messages.join("<br>• ")}`;
+            } else {
+                statusEl.innerHTML = `<span class="bad">Vários possíveis erros... (principalmente balanceamento e palavras erradas)</span>`;
+            }
+        } else {
+            editor.classList.remove("bad");
+            editor.classList.add("good");
+            statusEl.innerHTML = `<span class="good">Parece estar bem por enquanto ✓</span>`;
+        }
+    }, 600);
+});
+</script>
+
+</body>
+</html>
